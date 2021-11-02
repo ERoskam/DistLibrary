@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Text;
 using System.Text.Json;
 using System.Net;
 using System.Net.Sockets;
@@ -31,6 +32,45 @@ namespace BookHelper
         public void start()
         {
             //todo: implement the body. Add extra fields and methods to the class if needed
+            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
+
+            //todo: implement the body. Add extra fields and methods to the class if it is needed
+
+            int maxBuffSize = 1000;
+
+            byte[] buffer = new byte[maxBuffSize];
+            byte[] msg = Encoding.ASCII.GetBytes("From server: Your message delivered\n");
+            string data = null;
+
+
+            IPAddress ipAddress = IPAddress.Parse(settings.BookHelperIPAddress);
+
+            IPEndPoint localEndpoint = new IPEndPoint(ipAddress, settings.BookHelperPortNumber);
+
+            while (true)
+            {
+                Socket sock = new Socket(AddressFamily.InterNetwork,
+                                        SocketType.Stream, ProtocolType.Tcp);
+
+
+                sock.Bind(localEndpoint);
+                sock.Listen(settings.ServerListeningQueue);
+                Console.WriteLine("\n Waiting for clients..");
+                Socket newSock = sock.Accept();
+
+                while (true)
+                {
+                    int b = newSock.Receive(buffer);
+                    data = Encoding.ASCII.GetString(buffer, 0, b);
+                    Message Msg = JsonSerializer.Deserialize<Message>(data);
+
+                    //actions
+
+                }
+
+            }
+
         }
     }
 }

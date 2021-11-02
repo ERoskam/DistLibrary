@@ -2,6 +2,7 @@
 using System.IO;
 using System.Net.Sockets;
 using System.Net;
+using System.Text;
 using System.Text.Json;
 using LibData;
 
@@ -48,7 +49,7 @@ namespace LibClient
         // todo: add extra fields here in case needed 
 
         /// <summary>
-        /// Initializes the client based on the given parameters and seeting file.
+        /// Initializes the client based on the given parameters and setting file.
         /// </summary>
         /// <param name="id">id of the clients provided by the simulator</param>
         /// <param name="bookName">name of the book to be requested from the server, provided by the simulator</param>
@@ -81,11 +82,121 @@ namespace LibClient
         public Output start()
         {
 
+            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
             // todo: implement the body to communicate with the server and requests the book. Return the result as an Output object.
             // Adding extra methods to the class is permitted. The signature of this method must not change.
+
+            int maxBuffSize = 1000;
+
+            byte[] buffer = new byte[maxBuffSize];
+            byte[] msg = new byte[maxBuffSize];
+            string data = null;
+
+            IPAddress ipAddress = IPAddress.Parse(settings.ServerIPAddress);
+
+            IPEndPoint serverEndpoint = new IPEndPoint(ipAddress, settings.ServerPortNumber);
+
+
+            Socket sock = new Socket(AddressFamily.InterNetwork,
+                                     SocketType.Stream, ProtocolType.Tcp);
+
+
+            sock.Connect(serverEndpoint);
+
+            sock.Send(AssembleMsgHello());
+
+            int Welcomesize = sock.Receive(buffer);
+            data = Encoding.ASCII.GetString(buffer, 0, Welcomesize);
+            Message Msg = JsonSerializer.Deserialize<Message>(data);
+
+            switch( Msg.Type ) 
+            {
+                case MessageType.Welcome:
+                    if (this.client_id.Equals("Client -1")) {
+                        sock.Send(AssembleMsgEndCommunication());
+                    }
+                    else {
+                        sock.Send(AssembleMsgBookInquiry());                   
+                    }
+                    break;
+            }
 
             return result;
         }
 
+/*        data = Encoding.ASCII.GetString(buffer, 0, bookInquiryReplyMsgInt);
+        Message bookInquiryMsg = JsonSerializer.Deserialize<Message>(data);
+        BookData recievedBookData = JsonSerializer.Deserialize<BookData>(bookInquiryMsg.Content);*/
+
+        public byte[] AssembleMsgHello()
+        {
+            Message replyJsonData = new Message
+            {
+                Type = MessageType.Hello,
+                Content = this.client_id
+            };
+
+            string msg = JsonSerializer.Serialize(replyJsonData);
+            byte[] msgNew = Encoding.ASCII.GetBytes(msg);
+
+            return msgNew;
+        }
+
+        public byte[] AssembleMsgEndCommunication()
+        {
+            Message replyJsonData = new Message
+            {
+                Type = MessageType.EndCommunication,
+                Content = "Content filler"
+            };
+
+            string msg = JsonSerializer.Serialize(replyJsonData);
+            byte[] msgNew = Encoding.ASCII.GetBytes(msg);
+
+            return msgNew;
+        }
+
+        public byte[] AssembleMsgBookInquiry()
+        {
+            Message replyJsonData = new Message
+            {
+                Type = MessageType.BookInquiry,
+                Content = this.bookName
+            };
+
+            string msg = JsonSerializer.Serialize(replyJsonData);
+            byte[] msgNew = Encoding.ASCII.GetBytes(msg);
+
+            return msgNew;
+        }
+
+        /*public byte[] AssembleMsgUserInquiry()
+        {
+            Message replyJsonData = new Message
+            {
+                Type = MessageType.UserInquiry,
+                Content = recievedBookData.BorrowedBy
+            };
+
+            string msg = JsonSerializer.Serialize(replyJsonData);
+            byte[] msgNew = Encoding.ASCII.GetBytes(msg);
+
+            return msgNew;
+        }
+
+        public byte[] AssembleMsgError()
+        {
+            Message replyJsonData = new Message
+            {
+                Type = MessageType.Error,
+                Content = "Error occured somewhere"
+            };
+
+            string msg = JsonSerializer.Serialize(replyJsonData);
+            byte[] msgNew = Encoding.ASCII.GetBytes(msg);
+
+            return msgNew;
+        }*/
     }
 }
