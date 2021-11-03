@@ -106,21 +106,47 @@ namespace LibClient
 
             sock.Send(AssembleMsgHello());
 
-            int Welcomesize = sock.Receive(buffer);
-            data = Encoding.ASCII.GetString(buffer, 0, Welcomesize);
-            Message Msg = JsonSerializer.Deserialize<Message>(data);
+            bool bonk = true;
 
-            switch( Msg.Type ) 
+            while (bonk)
             {
-                case MessageType.Welcome:
-                    if (this.client_id.Equals("Client -1")) {
-                        sock.Send(AssembleMsgEndCommunication());
-                    }
-                    else {
-                        sock.Send(AssembleMsgBookInquiry());                   
-                    }
-                    break;
+                int Welcomesize = sock.Receive(buffer);
+                data = Encoding.ASCII.GetString(buffer, 0, Welcomesize);
+                Message Msg = JsonSerializer.Deserialize<Message>(data);
+
+                switch( Msg.Type ) 
+                {
+                    case MessageType.Welcome:
+                        if (this.client_id.Equals("Client -1")) {
+                            sock.Send(AssembleMsgEndCommunication());
+                        }
+                        else {
+                            sock.Send(AssembleMsgBookInquiry());                   
+                        }
+                        break;
+                    case MessageType.BookInquiryReply:
+                        BookData bookData = JsonSerializer.Deserialize<BookData>(Msg.Content);
+                        // TODO: Check if book borrowed, if the book is borrowed, send a UserInquery request to the server
+                        // TODO: if book is not borrowed, edit the result with the new data that needs to be added and close the connection with the server aka set bonk to false
+                        break;
+                    case MessageType.UserInquiryReply:
+                        // TODO: edit the result with the new data that needs to be added and close the connection with the server aka set bonk to false
+                        break;
+                    case MessageType.NotFound:
+                        // TODO: edit the result with the new data that needs to be added and close the connection with the server aka set bonk to false
+                        Output result = new Output
+                        {
+                            Client_id = this.client_id,
+                            BookName = this.bookName,
+                            Status = null,
+                            BorrowerName = null,
+                            BorrowerEmail = null
+                        };
+                        break;
+                }
             }
+            sock.Disconnect(false);
+            sock.Close();
 
             return result;
         }

@@ -48,22 +48,32 @@ namespace LibServer
 
             IPEndPoint localEndpoint = new IPEndPoint(ipAddress, settings.ServerPortNumber);
 
+            Socket sock = new Socket(AddressFamily.InterNetwork,
+                        SocketType.Stream, ProtocolType.Tcp);
+
+
+            sock.Bind(localEndpoint);
+            bool bonk = true;
+
             while (true)
             {
-                Socket sock = new Socket(AddressFamily.InterNetwork,
-                                        SocketType.Stream, ProtocolType.Tcp);
-
-
-                sock.Bind(localEndpoint);
                 sock.Listen(settings.ServerListeningQueue);
                 Console.WriteLine("\n Waiting for clients..");
                 Socket newSock = sock.Accept();
 
-                while (true)
+                while (IsConnected(newSock))
                 {
                     int b = newSock.Receive(buffer);
                     data = Encoding.ASCII.GetString(buffer, 0, b);
-                    Message Msg = JsonSerializer.Deserialize<Message>(data);
+                    Console.Write(data);
+
+                    Message Msg;
+
+                    if (data != "")
+                    {
+                        Msg = JsonSerializer.Deserialize<Message>(data);
+                    }
+                    else continue;
 
                     switch (Msg.Type)
                     {
@@ -72,13 +82,14 @@ namespace LibServer
                             break;
 
                         case MessageType.EndCommunication:
-                            newSock.Close();
                             Console.WriteLine("Closing the socket..");
-                            sock.Close();
+                            bonk = false;
                             break;
 
                         case MessageType.BookInquiry:
-                            BookHelperConnect(Msg);
+                            Message reply = BookHelperConnect(Msg);
+                            Console.WriteLine(JsonSerializer.Serialize<Message>(reply));
+                            newSock.Send(Encoding.ASCII.GetBytes(JsonSerializer.Serialize<Message>(reply)));
                             break;
 
                         //case MessageType.UserInquiry:
@@ -91,7 +102,6 @@ namespace LibServer
                             newSock.Send(msg);
                             break;
                     }
-                    break;
 
                 }
 
@@ -99,7 +109,19 @@ namespace LibServer
 
         }
 
-        public void BookHelperConnect(Message BookMsg) 
+        public bool IsConnected(Socket socket)
+        {
+            try
+            {
+                return !(socket.Poll(1000, SelectMode.SelectRead) && socket.Available == 0);
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
+        }
+
+        public Message BookHelperConnect(Message BookMsg) 
         {
             string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
             var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
@@ -111,6 +133,7 @@ namespace LibServer
 
             byte[] buffer = new byte[maxBuffSize];
             byte[] msg = new byte[maxBuffSize];
+            string data = null;
 
             IPAddress BookipAddress = IPAddress.Parse(settings.BookHelperIPAddress);
             IPEndPoint BookServerEndpoint = new IPEndPoint(BookipAddress, settings.BookHelperPortNumber);
@@ -121,13 +144,11 @@ namespace LibServer
             sockBook.Connect(BookServerEndpoint);
             sockBook.Send(BookData);
 
-          /*  int Welcomesize = sockBook.Receive(buffer);
-            data = Encoding.ASCII.GetString(buffer, 0, Welcomesize);
-            Message Msg = JsonSerializer.Deserialize<Message>(data);*/
+            int bookInqReplySize = sockBook.Receive(buffer);
+            data = Encoding.ASCII.GetString(buffer, 0, bookInqReplySize);
+            Message Msg = JsonSerializer.Deserialize<Message>(data);
 
-            
-
-            return;
+            return Msg;
         }
 
         public void UserHelperConnect()
@@ -151,6 +172,3 @@ namespace LibServer
     }
 
 }
-
-
-

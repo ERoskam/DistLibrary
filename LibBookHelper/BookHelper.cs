@@ -43,36 +43,50 @@ namespace BookHelper
             IPAddress ipAddress = IPAddress.Parse(settings.BookHelperIPAddress);
             IPEndPoint localEndpoint = new IPEndPoint(ipAddress, settings.BookHelperPortNumber);
 
+            Socket sock = new Socket(AddressFamily.InterNetwork,
+                        SocketType.Stream, ProtocolType.Tcp);
+
+            sock.Bind(localEndpoint);
+
             while (true)
             {
-                Socket sock = new Socket(AddressFamily.InterNetwork,
-                                        SocketType.Stream, ProtocolType.Tcp);
-
-                sock.Bind(localEndpoint);
                 sock.Listen(settings.ServerListeningQueue);
                 Console.WriteLine("\n Waiting for clients..");
                 Socket newSock = sock.Accept();
 
-                while (true)
+                while (IsConnected(newSock))
                 {
                     int b = newSock.Receive(buffer);
                     data = Encoding.ASCII.GetString(buffer, 0, b);
                     Message Msg = JsonSerializer.Deserialize<Message>(data);
 
-                    sock.Send(AssembleBookInqReply(Msg));
+                    newSock.Send(AssembleBookInqReply(Msg));
+                    break;
                 }
+            }
+        }
+
+        public bool IsConnected(Socket socket)
+        {
+            try
+            {
+                return !(socket.Poll(1000, SelectMode.SelectRead) && socket.Available == 0);
+            }
+            catch (SocketException)
+            {
+                return false;
             }
         }
 
         public byte[] AssembleBookInqReply(Message Msg)
         {
-            string bookJson = File.ReadAllText(@"../../../../Books.json");
+            string bookJson = File.ReadAllText(@"../../../Books.json");
             BookData[] books = JsonSerializer.Deserialize<BookData[]>(bookJson);
             BookData foundBook = null;
 
             foreach (BookData book in books)
             {
-                if (book.Title.Equals(JsonSerializer.Deserialize<string>(Msg.Content)))
+                if (book.Title.Equals(Msg.Content))
                 {
                     foundBook = book;
                 }
@@ -84,8 +98,8 @@ namespace BookHelper
             {
                 replyJsonData = new Message
                 {
-                    Type = MessageType.NotFound,
-                    Content = "" + JsonSerializer.Serialize<BookData>(foundBook)
+                    Type = MessageType.BookInquiryReply,
+                    Content = JsonSerializer.Serialize<BookData>(foundBook)
                 };
             }
             else
@@ -93,7 +107,7 @@ namespace BookHelper
                 replyJsonData = new Message
                 {
                     Type = MessageType.NotFound,
-                    Content = "We don't have this book, you silly boii"
+                    Content = Msg.Content
                 };
             }
 
