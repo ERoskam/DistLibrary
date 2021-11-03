@@ -31,11 +31,8 @@ namespace BookHelper
 
         public void start()
         {
-            //todo: implement the body. Add extra fields and methods to the class if needed
             string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
             var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
-
-            //todo: implement the body. Add extra fields and methods to the class if it is needed
 
             int maxBuffSize = 1000;
 
@@ -43,16 +40,13 @@ namespace BookHelper
             byte[] msg = Encoding.ASCII.GetBytes("From server: Your message delivered\n");
             string data = null;
 
-
             IPAddress ipAddress = IPAddress.Parse(settings.BookHelperIPAddress);
-
             IPEndPoint localEndpoint = new IPEndPoint(ipAddress, settings.BookHelperPortNumber);
 
             while (true)
             {
                 Socket sock = new Socket(AddressFamily.InterNetwork,
                                         SocketType.Stream, ProtocolType.Tcp);
-
 
                 sock.Bind(localEndpoint);
                 sock.Listen(settings.ServerListeningQueue);
@@ -65,12 +59,50 @@ namespace BookHelper
                     data = Encoding.ASCII.GetString(buffer, 0, b);
                     Message Msg = JsonSerializer.Deserialize<Message>(data);
 
-                    //actions
-
+                    sock.Send(AssembleBookInqReply(Msg));
                 }
+            }
+        }
 
+        public byte[] AssembleBookInqReply(Message Msg)
+        {
+            string bookJson = File.ReadAllText(@"../../../../Books.json");
+            BookData[] books = JsonSerializer.Deserialize<BookData[]>(bookJson);
+            BookData foundBook = null;
+
+            foreach (BookData book in books)
+            {
+                if (book.Title.Equals(JsonSerializer.Deserialize<string>(Msg.Content)))
+                {
+                    foundBook = book;
+                }
             }
 
+            Message replyJsonData = null;
+
+            if (foundBook != null)
+            {
+                replyJsonData = new Message
+                {
+                    Type = MessageType.NotFound,
+                    Content = "" + JsonSerializer.Serialize<BookData>(foundBook)
+                };
+            }
+            else
+            {
+                replyJsonData = new Message
+                {
+                    Type = MessageType.NotFound,
+                    Content = "We don't have this book, you silly boii"
+                };
+            }
+
+            string msg = JsonSerializer.Serialize(replyJsonData);
+            byte[] msgNew = Encoding.ASCII.GetBytes(msg);
+
+            return msgNew;
         }
     }
 }
+
+          

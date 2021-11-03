@@ -78,9 +78,13 @@ namespace LibServer
                             break;
 
                         case MessageType.BookInquiry:
-
+                            BookHelperConnect(Msg);
                             break;
 
+                        //case MessageType.UserInquiry:
+                          //  UserHelperConnect(Msg);
+                            //break;
+                            
                         default:
                             Console.WriteLine("" + data);
                             data = null;
@@ -92,6 +96,42 @@ namespace LibServer
                 }
 
             }
+
+        }
+
+        public void BookHelperConnect(Message BookMsg) 
+        {
+            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
+
+            var BookMsgJson = JsonSerializer.Serialize<Message>(BookMsg);
+            byte[] BookData = Encoding.ASCII.GetBytes(BookMsgJson);
+
+            int maxBuffSize = 1000;
+
+            byte[] buffer = new byte[maxBuffSize];
+            byte[] msg = new byte[maxBuffSize];
+
+            IPAddress BookipAddress = IPAddress.Parse(settings.BookHelperIPAddress);
+            IPEndPoint BookServerEndpoint = new IPEndPoint(BookipAddress, settings.BookHelperPortNumber);
+
+            Socket sockBook = new Socket(AddressFamily.InterNetwork,
+                                     SocketType.Stream, ProtocolType.Tcp);
+
+            sockBook.Connect(BookServerEndpoint);
+            sockBook.Send(BookData);
+
+          /*  int Welcomesize = sockBook.Receive(buffer);
+            data = Encoding.ASCII.GetString(buffer, 0, Welcomesize);
+            Message Msg = JsonSerializer.Deserialize<Message>(data);*/
+
+            
+
+            return;
+        }
+
+        public void UserHelperConnect()
+        {
 
         }
 
