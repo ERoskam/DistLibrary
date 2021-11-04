@@ -92,7 +92,7 @@ namespace UserHelper
 
         public byte[] AssembleUserInqReply(Message Msg)
         {
-            string userJson = File.ReadAllText(@"../Users.json");
+            string userJson = File.ReadAllText(@"Users.json");
             UserData[] users = JsonSerializer.Deserialize<UserData[]>(userJson);
             UserData foundUser = null;
 

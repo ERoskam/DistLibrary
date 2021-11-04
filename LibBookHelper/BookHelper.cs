@@ -90,7 +90,7 @@ namespace BookHelper
 
         public byte[] AssembleBookInqReply(Message Msg)
         {
-            string bookJson = File.ReadAllText(@"../Books.json");
+            string bookJson = File.ReadAllText(@"Books.json");
             BookData[] books = JsonSerializer.Deserialize<BookData[]>(bookJson);
             BookData foundBook = null;
 
