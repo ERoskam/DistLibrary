@@ -1,4 +1,6 @@
-﻿{
+﻿//Jasper Sjouw 1014192, Victor Roskam 1007353
+
+{
     "ServerPortNumber": 11111,
     "BookHelperPortNumber": 11112,
     "UserHelperPortNumber": 11113,
