@@ -31,7 +31,7 @@ namespace BookHelper
 
         public void start()
         {
-            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            string Configcontent = File.ReadAllText(@"../ClientServerConfig.json");
             var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
 
             int maxBuffSize = 1000;
@@ -48,9 +48,12 @@ namespace BookHelper
 
             sock.Bind(localEndpoint);
 
-            while (true)
+            var bonk = true;
+
+            sock.Listen(settings.ServerListeningQueue);
+
+            while (bonk)
             {
-                sock.Listen(settings.ServerListeningQueue);
                 Console.WriteLine("\n Waiting for clients..");
                 Socket newSock = sock.Accept();
 
@@ -60,7 +63,14 @@ namespace BookHelper
                     data = Encoding.ASCII.GetString(buffer, 0, b);
                     Message Msg = JsonSerializer.Deserialize<Message>(data);
 
-                    newSock.Send(AssembleBookInqReply(Msg));
+                    if (Msg.Type.Equals(MessageType.EndCommunication))
+                    {
+                        newSock.Disconnect(false);
+                        bonk = false;
+                    } else
+                    {
+                        newSock.Send(AssembleBookInqReply(Msg));
+                    }
                     break;
                 }
             }
@@ -80,7 +90,7 @@ namespace BookHelper
 
         public byte[] AssembleBookInqReply(Message Msg)
         {
-            string bookJson = File.ReadAllText(@"../../../Books.json");
+            string bookJson = File.ReadAllText(@"../Books.json");
             BookData[] books = JsonSerializer.Deserialize<BookData[]>(bookJson);
             BookData foundBook = null;
 

@@ -32,7 +32,7 @@ namespace LibServer
 
         public void start()
         {
-            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            string Configcontent = File.ReadAllText(@"../ClientServerConfig.json");
             var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
 
             //todo: implement the body. Add extra fields and methods to the class if it is needed
@@ -42,6 +42,7 @@ namespace LibServer
             byte[] buffer = new byte[maxBuffSize];
             byte[] msg = Encoding.ASCII.GetBytes("From server: Your message delivered\n");
             string data = null;
+            Message reply = null;
 
 
             IPAddress ipAddress = IPAddress.Parse(settings.ServerIPAddress);
@@ -55,9 +56,10 @@ namespace LibServer
             sock.Bind(localEndpoint);
             bool bonk = true;
 
-            while (true)
+            sock.Listen(settings.ServerListeningQueue);
+
+            while (bonk)
             {
-                sock.Listen(settings.ServerListeningQueue);
                 Console.WriteLine("\n Waiting for clients..");
                 Socket newSock = sock.Accept();
 
@@ -82,20 +84,25 @@ namespace LibServer
                             break;
 
                         case MessageType.EndCommunication:
-                            Console.WriteLine("Closing the socket..");
+                            Console.WriteLine("Closing the socket and helper sockets");
+                            BookHelperConnect(Msg);
+                            UserHelperConnect(Msg);
+                            newSock.Shutdown(SocketShutdown.Both);
                             bonk = false;
-                            break;
+                            break;  
 
                         case MessageType.BookInquiry:
-                            Message reply = BookHelperConnect(Msg);
+                            reply = BookHelperConnect(Msg);
                             Console.WriteLine(JsonSerializer.Serialize<Message>(reply));
                             newSock.Send(Encoding.ASCII.GetBytes(JsonSerializer.Serialize<Message>(reply)));
                             break;
 
-                        //case MessageType.UserInquiry:
-                          //  UserHelperConnect(Msg);
-                            //break;
-                            
+                        case MessageType.UserInquiry:
+                            reply = UserHelperConnect(Msg);
+                            Console.WriteLine(JsonSerializer.Serialize<Message>(reply));
+                            newSock.Send(Encoding.ASCII.GetBytes(JsonSerializer.Serialize<Message>(reply)));
+                            break;
+
                         default:
                             Console.WriteLine("" + data);
                             data = null;
@@ -123,7 +130,7 @@ namespace LibServer
 
         public Message BookHelperConnect(Message BookMsg) 
         {
-            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            string Configcontent = File.ReadAllText(@"../ClientServerConfig.json");
             var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
 
             var BookMsgJson = JsonSerializer.Serialize<Message>(BookMsg);
@@ -134,6 +141,7 @@ namespace LibServer
             byte[] buffer = new byte[maxBuffSize];
             byte[] msg = new byte[maxBuffSize];
             string data = null;
+            Message Msg = null;
 
             IPAddress BookipAddress = IPAddress.Parse(settings.BookHelperIPAddress);
             IPEndPoint BookServerEndpoint = new IPEndPoint(BookipAddress, settings.BookHelperPortNumber);
@@ -146,14 +154,48 @@ namespace LibServer
 
             int bookInqReplySize = sockBook.Receive(buffer);
             data = Encoding.ASCII.GetString(buffer, 0, bookInqReplySize);
-            Message Msg = JsonSerializer.Deserialize<Message>(data);
+
+            if (data != "")
+            {
+                Msg = JsonSerializer.Deserialize<Message>(data);
+            }
 
             return Msg;
         }
 
-        public void UserHelperConnect()
+        public Message UserHelperConnect(Message UserMsg)
         {
+            string Configcontent = File.ReadAllText(@"../ClientServerConfig.json");
+            var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
 
+            var UserMsgJson = JsonSerializer.Serialize<Message>(UserMsg);
+            byte[] UserData = Encoding.ASCII.GetBytes(UserMsgJson);
+
+            int maxBuffSize = 1000;
+
+            byte[] buffer = new byte[maxBuffSize];
+            byte[] msg = new byte[maxBuffSize];
+            string data = null;
+            Message Msg = null;
+
+            IPAddress UseripAddress = IPAddress.Parse(settings.UserHelperIPAddress);
+            IPEndPoint UserServerEndpoint = new IPEndPoint(UseripAddress, settings.UserHelperPortNumber);
+
+            Socket sockUser = new Socket(AddressFamily.InterNetwork,
+                                     SocketType.Stream, ProtocolType.Tcp);
+
+            sockUser.Connect(UserServerEndpoint);
+            sockUser.Send(UserData);
+
+            int userInqReplySize = sockUser.Receive(buffer);
+            data = Encoding.ASCII.GetString(buffer, 0, userInqReplySize);
+
+            if(data != "")
+            {
+                Msg = JsonSerializer.Deserialize<Message>(data);
+            }
+
+            return Msg;
         }
 
         public byte[] AssembleMsgWelcome()

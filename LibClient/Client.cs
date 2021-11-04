@@ -80,9 +80,9 @@ namespace LibClient
         /// </summary>
         /// <returns>The result of the request</returns>
         public Output start()
-        {
+        {   
 
-            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            string Configcontent = File.ReadAllText(@"../ClientServerConfig.json");
             var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
             // todo: implement the body to communicate with the server and requests the book. Return the result as an Output object.
             // Adding extra methods to the class is permitted. The signature of this method must not change.
@@ -92,6 +92,7 @@ namespace LibClient
             byte[] buffer = new byte[maxBuffSize];
             byte[] msg = new byte[maxBuffSize];
             string data = null;
+            Output result = null;
 
             IPAddress ipAddress = IPAddress.Parse(settings.ServerIPAddress);
 
@@ -117,8 +118,9 @@ namespace LibClient
                 switch( Msg.Type ) 
                 {
                     case MessageType.Welcome:
-                        if (this.client_id.Equals("Client -1")) {
+                        if (client_id.Equals("Client -1")) {
                             sock.Send(AssembleMsgEndCommunication());
+                            bonk = false;
                         }
                         else {
                             sock.Send(AssembleMsgBookInquiry());                   
@@ -126,15 +128,37 @@ namespace LibClient
                         break;
                     case MessageType.BookInquiryReply:
                         BookData bookData = JsonSerializer.Deserialize<BookData>(Msg.Content);
-                        // TODO: Check if book borrowed, if the book is borrowed, send a UserInquery request to the server
-                        // TODO: if book is not borrowed, edit the result with the new data that needs to be added and close the connection with the server aka set bonk to false
+                        if(bookData.Status != "Borrowed")
+                        {   
+                            result = new Output
+                            {
+                                Client_id = this.client_id,
+                                BookName = this.bookName,
+                                Status = bookData.Status,
+                                BorrowerName = null,
+                                BorrowerEmail = null
+                            };
+                            bonk = false;
+                        }
+                        else
+                        {
+                            sock.Send(AssembleMsgUserInquiry(bookData));
+                        }
                         break;
                     case MessageType.UserInquiryReply:
-                        // TODO: edit the result with the new data that needs to be added and close the connection with the server aka set bonk to false
+                        UserData UserData = JsonSerializer.Deserialize<UserData>(Msg.Content);
+                        result = new Output
+                        {
+                            Client_id = this.client_id,
+                            BookName = this.bookName,
+                            Status = "Borrowed",
+                            BorrowerName = UserData.Name,
+                            BorrowerEmail = UserData.Email
+                        };
+                        bonk = false;
                         break;
                     case MessageType.NotFound:
-                        // TODO: edit the result with the new data that needs to be added and close the connection with the server aka set bonk to false
-                        Output result = new Output
+                        result = new Output
                         {
                             Client_id = this.client_id,
                             BookName = this.bookName,
@@ -142,6 +166,7 @@ namespace LibClient
                             BorrowerName = null,
                             BorrowerEmail = null
                         };
+                        bonk = false;
                         break;
                 }
             }
@@ -150,10 +175,6 @@ namespace LibClient
 
             return result;
         }
-
-/*        data = Encoding.ASCII.GetString(buffer, 0, bookInquiryReplyMsgInt);
-        Message bookInquiryMsg = JsonSerializer.Deserialize<Message>(data);
-        BookData recievedBookData = JsonSerializer.Deserialize<BookData>(bookInquiryMsg.Content);*/
 
         public byte[] AssembleMsgHello()
         {
@@ -174,7 +195,7 @@ namespace LibClient
             Message replyJsonData = new Message
             {
                 Type = MessageType.EndCommunication,
-                Content = "Content filler"
+                Content = "It's over Anakin"
             };
 
             string msg = JsonSerializer.Serialize(replyJsonData);
@@ -197,7 +218,7 @@ namespace LibClient
             return msgNew;
         }
 
-        /*public byte[] AssembleMsgUserInquiry()
+        public byte[] AssembleMsgUserInquiry(BookData recievedBookData)
         {
             Message replyJsonData = new Message
             {
@@ -223,6 +244,6 @@ namespace LibClient
             byte[] msgNew = Encoding.ASCII.GetBytes(msg);
 
             return msgNew;
-        }*/
+        }
     }
 }

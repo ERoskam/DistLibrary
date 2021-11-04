@@ -31,11 +31,8 @@ namespace UserHelper
 
         public void start()
         {
-            //todo: implement the body. Add extra fields and methods to the class if needed
-            string Configcontent = File.ReadAllText(@"../../../../ClientServerConfig.json");
+            string Configcontent = File.ReadAllText(@"../ClientServerConfig.json");
             var settings = JsonSerializer.Deserialize<Setting>(Configcontent);
-
-            //todo: implement the body. Add extra fields and methods to the class if it is needed
 
             int maxBuffSize = 1000;
 
@@ -43,33 +40,93 @@ namespace UserHelper
             byte[] msg = Encoding.ASCII.GetBytes("From server: Your message delivered\n");
             string data = null;
 
-
             IPAddress ipAddress = IPAddress.Parse(settings.UserHelperIPAddress);
-
             IPEndPoint localEndpoint = new IPEndPoint(ipAddress, settings.UserHelperPortNumber);
 
-            while (true)
+            Socket sock = new Socket(AddressFamily.InterNetwork,
+                        SocketType.Stream, ProtocolType.Tcp);
+
+            sock.Bind(localEndpoint);
+
+            var bonk = true;
+
+            sock.Listen(settings.ServerListeningQueue);
+
+            while (bonk)
             {
-                Socket sock = new Socket(AddressFamily.InterNetwork,
-                                        SocketType.Stream, ProtocolType.Tcp);
-
-
-                sock.Bind(localEndpoint);
-                sock.Listen(settings.ServerListeningQueue);
                 Console.WriteLine("\n Waiting for clients..");
                 Socket newSock = sock.Accept();
 
-                while (true)
+                while (IsConnected(newSock))
                 {
                     int b = newSock.Receive(buffer);
                     data = Encoding.ASCII.GetString(buffer, 0, b);
                     Message Msg = JsonSerializer.Deserialize<Message>(data);
 
-                    //actions
-
+                    if (Msg.Type.Equals(MessageType.EndCommunication))
+                    {
+                        newSock.Disconnect(false);
+                        bonk = false;
+                    }
+                    else
+                    {
+                        newSock.Send(AssembleUserInqReply(Msg));
+                    }
+                    break;
                 }
-
             }
+
+        }
+
+        public bool IsConnected(Socket socket)
+        {
+            try
+            {
+                return !(socket.Poll(1000, SelectMode.SelectRead) && socket.Available == 0);
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
+        }
+
+        public byte[] AssembleUserInqReply(Message Msg)
+        {
+            string userJson = File.ReadAllText(@"../Users.json");
+            UserData[] users = JsonSerializer.Deserialize<UserData[]>(userJson);
+            UserData foundUser = null;
+
+            foreach (UserData user in users)
+            {
+                if (user.User_id.Equals(Msg.Content))
+                {
+                    foundUser = user;
+                }
+            }
+
+            Message replyJsonData = null;
+
+            if (foundUser != null)
+            {
+                replyJsonData = new Message
+                {
+                    Type = MessageType.UserInquiryReply,
+                    Content = JsonSerializer.Serialize<UserData>(foundUser)
+                };
+            }
+            else
+            {
+                replyJsonData = new Message
+                {
+                    Type = MessageType.NotFound,
+                    Content = Msg.Content
+                };
+            }
+
+            string msg = JsonSerializer.Serialize(replyJsonData);
+            byte[] msgNew = Encoding.ASCII.GetBytes(msg);
+
+            return msgNew;
         }
     }
 }
