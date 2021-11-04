@@ -166,6 +166,7 @@ namespace LibClient
                             BorrowerName = null,
                             BorrowerEmail = null
                         };
+                        Console.WriteLine("Error: It appears there is an nonexistant user or book in the request");
                         bonk = false;
                         break;
                 }
